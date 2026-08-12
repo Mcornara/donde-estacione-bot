@@ -132,6 +132,47 @@ def parse_location_callback(
         return None, None, None, None
 
 
+def reference_callback(message_id: int) -> str:
+    """Codifica el mensaje de Telegram que contiene una referencia."""
+    return f"reference|{message_id}"
+
+
+def parse_reference_callback(data: str) -> int | None:
+    try:
+        action, message_id = data.split("|")
+        if action != "reference":
+            raise ValueError
+        return int(message_id)
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def card_reference_ids(message) -> list[int]:
+    """Recupera los mensajes de referencia guardados en la tarjeta."""
+    if not message or not message.reply_markup:
+        return []
+
+    references = []
+    for row in message.reply_markup.inline_keyboard:
+        for button in row:
+            message_id = parse_reference_callback(button.callback_data)
+            if message_id is not None and message_id not in references:
+                references.append(message_id)
+    return references
+
+
+def reference_rows(reference_ids: list[int] | None) -> list[list[InlineKeyboardButton]]:
+    return [
+        [
+            InlineKeyboardButton(
+                f"📎 Ver referencia {index}",
+                callback_data=reference_callback(message_id),
+            )
+        ]
+        for index, message_id in enumerate(reference_ids or [], start=1)
+    ]
+
+
 def card_location(message) -> tuple[float, float] | None:
     """Recupera la ubicación almacenada en los botones de una tarjeta."""
     if not message or not message.reply_markup:
@@ -152,7 +193,11 @@ def card_location(message) -> tuple[float, float] | None:
     return None
 
 
-def parking_card_keyboard(latitude: float, longitude: float) -> InlineKeyboardMarkup:
+def parking_card_keyboard(
+    latitude: float,
+    longitude: float,
+    reference_ids: list[int] | None = None,
+) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
@@ -166,13 +211,16 @@ def parking_card_keyboard(latitude: float, longitude: float) -> InlineKeyboardMa
                         "ask_close", latitude, longitude
                     ),
                 ),
-            ]
+            ],
+            *reference_rows(reference_ids),
         ]
     )
 
 
 def close_confirmation_keyboard(
-    latitude: float, longitude: float
+    latitude: float,
+    longitude: float,
+    reference_ids: list[int] | None = None,
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
@@ -189,7 +237,8 @@ def close_confirmation_keyboard(
                         "cancel_close", latitude, longitude
                     ),
                 ),
-            ]
+            ],
+            *reference_rows(reference_ids),
         ]
     )
 
@@ -343,7 +392,28 @@ async def receive_reference(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await reject_if_unauthorized(update):
         return
 
-    if await active_card(update, context):
+    card = await active_card(update, context)
+    if card:
+        latitude, longitude = card_location(card)
+        references = card_reference_ids(card)
+        if update.message.message_id not in references:
+            references.append(update.message.message_id)
+
+        try:
+            await context.bot.edit_message_reply_markup(
+                chat_id=card.chat_id,
+                message_id=card.message_id,
+                reply_markup=parking_card_keyboard(
+                    latitude, longitude, references
+                ),
+            )
+        except BadRequest:
+            await update.message.reply_text(
+                "No pude vincular esa referencia con la tarjeta. Probá enviarla nuevamente.",
+                reply_markup=active_keyboard(),
+            )
+            return
+
         await update.message.reply_text(
             "Referencia agregada al estacionamiento activo ✅",
             reply_markup=active_keyboard(),
@@ -374,6 +444,15 @@ async def find_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
         longitude=longitude,
         reply_markup=active_keyboard(),
     )
+    for message_id in card_reference_ids(card):
+        try:
+            await context.bot.copy_message(
+                chat_id=card.chat_id,
+                from_chat_id=card.chat_id,
+                message_id=message_id,
+            )
+        except BadRequest:
+            LOGGER.info("Una referencia ya no estaba disponible en Telegram.")
 
 
 async def request_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -418,6 +497,27 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     card = query.message
+    reference_message_id = parse_reference_callback(query.data)
+    if reference_message_id is not None:
+        if not is_parking_card(card):
+            await query.answer(
+                "El estacionamiento ya no está activo.",
+                show_alert=True,
+            )
+            return
+        try:
+            await context.bot.copy_message(
+                chat_id=card.chat_id,
+                from_chat_id=card.chat_id,
+                message_id=reference_message_id,
+            )
+        except BadRequest:
+            await query.answer(
+                "Esa referencia ya no está disponible en Telegram.",
+                show_alert=True,
+            )
+        return
+
     action, latitude, longitude, original_card_id = parse_location_callback(query.data)
 
     valid_source = is_parking_card(card) or (
@@ -446,7 +546,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     latitude, longitude, original_card_id
                 )
                 if original_card_id is not None
-                else close_confirmation_keyboard(latitude, longitude)
+                else close_confirmation_keyboard(
+                    latitude, longitude, card_reference_ids(card)
+                )
             ),
         )
     elif action == "cancel_close":
@@ -454,7 +556,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{CARD_OPEN} 📍\n\n"
             "Esta tarjeta es el recordatorio de tu estacionamiento.\n"
             "Mientras esté activo, podés enviar una foto, un audio o una nota.",
-            reply_markup=parking_card_keyboard(latitude, longitude),
+            reply_markup=parking_card_keyboard(
+                latitude, longitude, card_reference_ids(card)
+            ),
         )
     elif action == "cancel_recovered_close":
         await query.edit_message_text(
@@ -531,10 +635,7 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text in {normalize(HELP_BUTTON), "ayuda", "help"}:
         await help_message(update, context)
     elif await active_card(update, context):
-        await update.message.reply_text(
-            "Nota agregada al estacionamiento activo ✅",
-            reply_markup=active_keyboard(),
-        )
+        await receive_reference(update, context)
     else:
         keyboard = await contextual_keyboard(update, context)
         await update.message.reply_text(

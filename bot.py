@@ -377,7 +377,9 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
         await update.message.reply_text(
-            "Listo: fijé la tarjeta. Cuando quieras volver, tocá “📍 ¿Dónde está mi auto?”.",
+            "Listo: guardé la ubicación y fijé la tarjeta 📍\n\n"
+            "Si querés, ahora podés enviar una foto, un audio o una nota como referencia.\n\n"
+            "Cuando quieras volver, tocá “📍 ¿Dónde está mi auto?”.",
             reply_markup=active_keyboard(),
         )
     except BadRequest:

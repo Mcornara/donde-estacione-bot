@@ -588,8 +588,22 @@ def main():
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
-    LOGGER.info("Bot iniciado sin base de datos")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    if render_url:
+        port = int(os.getenv("PORT", "10000"))
+        webhook_path = "telegram"
+        LOGGER.info("Bot iniciado mediante webhook en Render")
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=webhook_path,
+            webhook_url=f"{render_url}/{webhook_path}",
+            secret_token=os.getenv("WEBHOOK_SECRET") or None,
+            allowed_updates=Update.ALL_TYPES,
+        )
+    else:
+        LOGGER.info("Bot iniciado mediante polling")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":

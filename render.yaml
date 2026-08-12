@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: donde-estacione-bot
+    runtime: docker
+    plan: free
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true

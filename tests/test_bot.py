@@ -11,9 +11,11 @@ from bot import (
     location_callback,
     normalize,
     parking_card_keyboard,
+    receive_reference,
     receive_location,
     request_close,
     inactive_keyboard,
+    text_message,
 )
 
 
@@ -62,6 +64,76 @@ def parking_card(message_id=20, location_message_id=10):
 
 
 class BotFlowTests(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_photo_is_added_when_parking_is_active(self):
+        message = SimpleNamespace(
+            reply_to_message=None,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            message=message,
+            effective_message=message,
+            effective_chat=SimpleNamespace(id=1),
+            effective_user=SimpleNamespace(id=2),
+        )
+        bot = SimpleNamespace(
+            get_chat=AsyncMock(
+                return_value=SimpleNamespace(pinned_message=parking_card())
+            ),
+        )
+
+        await receive_reference(update, SimpleNamespace(bot=bot))
+
+        self.assertIn(
+            "Referencia agregada",
+            message.reply_text.await_args.args[0],
+        )
+
+    async def test_reference_requires_an_active_parking(self):
+        message = SimpleNamespace(
+            reply_to_message=None,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            message=message,
+            effective_message=message,
+            effective_chat=SimpleNamespace(id=1),
+            effective_user=SimpleNamespace(id=2),
+        )
+        bot = SimpleNamespace(
+            get_chat=AsyncMock(
+                return_value=SimpleNamespace(pinned_message=None)
+            ),
+        )
+
+        await receive_reference(update, SimpleNamespace(bot=bot))
+
+        self.assertIn(
+            "No hay un estacionamiento activo",
+            message.reply_text.await_args.args[0],
+        )
+
+    async def test_direct_text_is_added_as_note_when_parking_is_active(self):
+        message = SimpleNamespace(
+            text="Nivel 2, cerca del ascensor",
+            reply_to_message=None,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            message=message,
+            effective_message=message,
+            effective_chat=SimpleNamespace(id=1),
+            effective_user=SimpleNamespace(id=2),
+        )
+        bot = SimpleNamespace(
+            get_chat=AsyncMock(
+                return_value=SimpleNamespace(pinned_message=parking_card())
+            ),
+        )
+
+        await text_message(update, SimpleNamespace(bot=bot))
+
+        self.assertIn("Nota agregada", message.reply_text.await_args.args[0])
+
     async def test_receive_location_creates_and_pins_card(self):
         card = parking_card()
         message = SimpleNamespace(

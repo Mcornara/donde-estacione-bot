@@ -1,0 +1,11 @@
+.env
+.env.*
+.venv/
+data/
+*.db
+__pycache__/
+*.pyc
+tests/
+.git/
+.gitignore
+desktop.ini

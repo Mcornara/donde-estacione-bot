@@ -169,6 +169,8 @@ class BotFlowTests(unittest.IsolatedAsyncioTestCase):
         bot.pin_chat_message.assert_awaited_once_with(
             chat_id=1, message_id=20, disable_notification=True
         )
+        confirmation = message.reply_text.await_args_list[1].args[0]
+        self.assertIn("foto, un audio o una nota", confirmation)
 
     async def test_find_card_sends_location_from_pinned_card(self):
         card = parking_card()

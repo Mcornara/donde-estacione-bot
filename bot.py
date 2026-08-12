@@ -257,7 +257,7 @@ async def help_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = await contextual_keyboard(update, context)
     await update.effective_message.reply_text(
         f"{greeting}\n\n"
-        "Te ayudo a recordar dónde dejaste el auto sin guardar tus datos en una base:\n\n"
+        "Te ayudo a recordar dónde dejaste el auto:\n\n"
         "1. Tocá “🚗 Estacioné” y compartí tu ubicación.\n"
         "2. Te voy a dejar una tarjeta fijada en el chat: esa tarjeta es tu recordatorio.\n"
         "3. Podés responderle con una foto, un audio o una nota.\n"

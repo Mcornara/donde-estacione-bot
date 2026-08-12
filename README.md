@@ -17,7 +17,8 @@ Bot de Telegram que recuerda dónde dejaste el auto sin almacenar tu informació
 1. El usuario toca **🚗 Estacioné** y comparte su ubicación.
 2. El bot crea una tarjeta con la ubicación codificada en sus botones y la fija.
 3. **📍 ¿Dónde está mi auto?** lee la tarjeta y vuelve a enviar la ubicación.
-4. Las referencias se agregan respondiendo directamente a la tarjeta.
+4. Mientras el estacionamiento está activo, las fotos, audios y notas que se
+   envían al bot se toman como referencias.
 5. **✅ Encontré el auto** elimina los botones y desfija el recordatorio.
 
 La [política de privacidad](PRIVACY.md) explica con mayor detalle qué datos

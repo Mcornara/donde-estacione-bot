@@ -1,7 +1,6 @@
 # ¿Dónde estacioné?
 
-Bot de Telegram que recuerda dónde dejaste el auto sin usar una base de datos
-propia. La conversación y una tarjeta fijada funcionan como memoria temporal.
+Bot de Telegram que recuerda dónde dejaste el auto sin almacenar tu información. La conversación y una tarjeta fijada funcionan como memoria temporal.
 
 ## Funcionalidades
 

@@ -1,5 +1,6 @@
 """Bot de Telegram para recordar un estacionamiento sin persistencia propia."""
 
+import hashlib
 import logging
 import os
 import unicodedata
@@ -592,13 +593,14 @@ def main():
     if render_url:
         port = int(os.getenv("PORT", "10000"))
         webhook_path = "telegram"
+        webhook_secret = hashlib.sha256(token.encode("utf-8")).hexdigest()
         LOGGER.info("Bot iniciado mediante webhook en Render")
         application.run_webhook(
             listen="0.0.0.0",
             port=port,
             url_path=webhook_path,
             webhook_url=f"{render_url}/{webhook_path}",
-            secret_token=os.getenv("WEBHOOK_SECRET") or None,
+            secret_token=webhook_secret,
             allowed_updates=Update.ALL_TYPES,
         )
     else:

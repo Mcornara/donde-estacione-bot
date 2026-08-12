@@ -6,5 +6,3 @@ services:
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
-      - key: WEBHOOK_SECRET
-        generateValue: true

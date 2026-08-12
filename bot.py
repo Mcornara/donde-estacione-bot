@@ -261,7 +261,7 @@ async def help_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Te ayudo a recordar dónde dejaste el auto:\n\n"
         "1. Tocá “🚗 Estacioné” y compartí tu ubicación.\n"
         "2. Te voy a dejar una tarjeta fijada en el chat: esa tarjeta es tu recordatorio.\n"
-        "3. Podés responderle con una foto, un audio o una nota.\n"
+        "3. Mientras esté activo, podés enviar una foto, un audio o una nota.\n"
         "4. Tocá “📍 ¿Dónde está mi auto?” y voy a recuperar la ubicación.\n"
         "5. Cuando vuelvas, tocá “✅ Encontré el auto”.\n\n"
         "Al cerrar el estacionamiento, la tarjeta se desfija automáticamente.",
@@ -297,7 +297,7 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
     card = await update.message.reply_text(
         f"{CARD_OPEN} 📍\n\n"
         "Esta tarjeta fijada es el recordatorio de tu estacionamiento.\n"
-        "Podés responderle con una foto, un audio o una nota.",
+        "Mientras esté activo, podés enviar una foto, un audio o una nota.",
         reply_markup=parking_card_keyboard(latitude, longitude),
         reply_to_message_id=update.message.message_id,
     )
@@ -342,17 +342,17 @@ async def receive_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receive_reference(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await reject_if_unauthorized(update):
         return
-    if is_parking_card(update.message.reply_to_message):
+
+    if await active_card(update, context):
         await update.message.reply_text(
-            "Referencia agregada a este estacionamiento ✅",
+            "Referencia agregada al estacionamiento activo ✅",
             reply_markup=active_keyboard(),
         )
         return
 
-    keyboard = await contextual_keyboard(update, context)
     await update.message.reply_text(
-        "Para asociar esa referencia, respondé directamente a la tarjeta del estacionamiento.",
-        reply_markup=keyboard,
+        "No hay un estacionamiento activo. Tocá “🚗 Estacioné” para guardar uno antes de agregar referencias.",
+        reply_markup=inactive_keyboard(),
     )
 
 
@@ -453,7 +453,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             f"{CARD_OPEN} 📍\n\n"
             "Esta tarjeta es el recordatorio de tu estacionamiento.\n"
-            "Podés responderle con una foto, un audio o una nota.",
+            "Mientras esté activo, podés enviar una foto, un audio o una nota.",
             reply_markup=parking_card_keyboard(latitude, longitude),
         )
     elif action == "cancel_recovered_close":
@@ -501,10 +501,6 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if await reject_if_unauthorized(update):
         return
 
-    if is_parking_card(update.message.reply_to_message):
-        await receive_reference(update, context)
-        return
-
     text = normalize(update.message.text)
     if text in {normalize(PARK_BUTTON), "estacione", "estacionar", "deje el auto"}:
         await ask_location(update)
@@ -534,6 +530,11 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif text in {normalize(HELP_BUTTON), "ayuda", "help"}:
         await help_message(update, context)
+    elif await active_card(update, context):
+        await update.message.reply_text(
+            "Nota agregada al estacionamiento activo ✅",
+            reply_markup=active_keyboard(),
+        )
     else:
         keyboard = await contextual_keyboard(update, context)
         await update.message.reply_text(

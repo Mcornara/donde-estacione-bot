@@ -589,6 +589,7 @@ def main():
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     render_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
     if render_url:
         port = int(os.getenv("PORT", "10000"))
